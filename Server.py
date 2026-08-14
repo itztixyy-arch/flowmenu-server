@@ -5,21 +5,19 @@ from flask import Flask, request, jsonify, render_template_string
 
 app = Flask(__name__)
 
-# Active player session storage (live status)
+# Active player session storage
 active_clients = {}
 TIMEOUT = 12
 
-# Unique stored player IDs (duplicates ignored)
+# Unique stored player IDs (Set for O(1) duplicate prevention)
 stored_player_ids = set()
 
 def cleanup_inactive_players():
     current_time = time.time()
-    # Remove timed-out players
     expired = [name for name, data in active_clients.items() if current_time - data["last_seen"] > TIMEOUT]
     for name in expired:
         del active_clients[name]
 
-    # Clean up ghost / uninitialized names
     ghost_keys = [k for k in active_clients.keys() if k.lower() == "unknown" or re.match(r"^gorilla\d+$", k.lower())]
     for ghost in ghost_keys:
         del active_clients[ghost]
@@ -38,14 +36,12 @@ def ping():
     if not player_name or player_name.lower() == "unknown" or re.match(r"^gorilla\d+$", player_name.lower()):
         return jsonify({"status": "ignored", "reason": "unloaded_nickname"}), 200
 
-    # Save active session details
     active_clients[player_name] = {
         "room": room_code,
         "player_id": player_id if player_id else "Unknown ID",
         "last_seen": time.time()
     }
 
-    # CHECK & ADD UNIQUE PLAYER ID TO HISTORY
     if player_id:
         stored_player_ids.add(player_id)
 
@@ -68,7 +64,7 @@ def get_stats():
         "stored_player_ids": list(stored_player_ids)
     })
 
-# ----------------- WEB FRONTEND ROUTE -----------------
+# ----------------- FRONTEND UI -----------------
 
 HTML_TEMPLATE = """
 <!DOCTYPE html>
@@ -79,320 +75,360 @@ HTML_TEMPLATE = """
     <title>FlowMenu Live Dashboard</title>
     <style>
         :root {
-            --bg-primary: #0a0b0e;
-            --bg-secondary: #12141a;
-            --bg-card: #1a1d26;
-            --accent-color: #6366f1;
+            --accent: #6366f1;
+            --accent-glow: rgba(99, 102, 241, 0.4);
+            --bg-glass: rgba(18, 20, 29, 0.65);
+            --border-glass: rgba(255, 255, 255, 0.08);
             --text-main: #f3f4f6;
             --text-muted: #9ca3af;
-            --border-color: #262936;
-            --status-green: #10b981;
-            --tag-red: #ef4444;
+            --green: #10b981;
+            --red: #ef4444;
         }
 
         * {
             box-sizing: border-box;
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            transition: all 0.2s ease-in-out;
+            margin: 0;
+            padding: 0;
         }
 
         body {
-            background-color: var(--bg-primary);
+            background-color: #08090c;
             color: var(--text-main);
-            display: flex;
-            margin: 0;
             height: 100vh;
             overflow: hidden;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
 
-        /* Vertically Centered Main Left Dashboard Area */
-        .main-content {
-            flex: 1;
-            padding: 40px;
+        /* Ambient Animated Background Orbs */
+        .bg-orb {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(90px);
+            opacity: 0.35;
+            z-index: 0;
+            animation: float 14s ease-in-out infinite alternate;
+        }
+
+        .orb-1 {
+            width: 450px;
+            height: 450px;
+            background: #6366f1;
+            top: -10%;
+            left: -5%;
+        }
+
+        .orb-2 {
+            width: 500px;
+            height: 500px;
+            background: #a855f7;
+            bottom: -15%;
+            right: -10%;
+            animation-delay: -7s;
+        }
+
+        @keyframes float {
+            0% { transform: translate(0, 0) scale(1); }
+            50% { transform: translate(60px, 40px) scale(1.1); }
+            100% { transform: translate(-30px, 80px) scale(0.95); }
+        }
+
+        /* Dashboard Container */
+        .dashboard-container {
+            position: relative;
+            z-index: 10;
+            display: flex;
+            gap: 28px;
+            width: 90%;
+            max-width: 1250px;
+            height: 80vh;
+            align-items: center;
+        }
+
+        /* Left Main Panel */
+        .main-card {
+            flex: 1.4;
+            background: var(--bg-glass);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--border-glass);
+            border-radius: 24px;
+            padding: 36px;
+            height: 100%;
             display: flex;
             flex-direction: column;
-            justify-content: center; /* Vertically Centers along Y-axis */
-            align-items: center;     /* Horizontally Centers Content Container */
-            overflow-y: auto;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
         }
 
-        /* Container that locks width for a clean centered layout */
-        .content-wrapper {
-            width: 100%;
-            max-width: 900px;
-        }
-
-        .header-section {
-            margin-bottom: 28px;
-        }
-
-        .dashboard-title {
-            font-size: 13px;
-            font-weight: 700;
-            color: var(--accent-color);
+        .header-title {
+            font-size: 12px;
+            font-weight: 800;
+            letter-spacing: 2px;
+            color: var(--accent);
             text-transform: uppercase;
-            letter-spacing: 1.5px;
-            margin-bottom: 10px;
-            text-align: left;
+            margin-bottom: 12px;
         }
 
-        /* HUGE ONLINE COUNT HEADER */
-        .big-online-banner {
-            background: linear-gradient(135deg, #171a24 0%, #11131b 100%);
-            border: 1px solid var(--border-color);
-            border-radius: 20px;
-            padding: 28px 36px;
+        .online-banner {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border-glass);
+            border-radius: 18px;
+            padding: 24px 30px;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+            margin-bottom: 24px;
         }
 
-        .big-online-text {
-            font-size: 44px;
+        .online-count {
+            font-size: 42px;
             font-weight: 900;
             letter-spacing: -1px;
-            color: #ffffff;
-            display: flex;
-            align-items: center;
-            gap: 16px;
+            color: #fff;
         }
 
-        .big-online-text span {
-            color: var(--status-green);
+        .online-count span {
+            color: var(--green);
+            text-shadow: 0 0 15px rgba(16, 185, 129, 0.4);
         }
 
-        .live-indicator {
+        .live-tag {
             display: flex;
             align-items: center;
-            gap: 10px;
-            background-color: rgba(16, 185, 129, 0.1);
-            border: 1px solid rgba(16, 185, 129, 0.25);
-            padding: 8px 16px;
+            gap: 8px;
+            background: rgba(16, 185, 129, 0.12);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            padding: 6px 14px;
             border-radius: 20px;
-            color: var(--status-green);
-            font-size: 13px;
+            color: var(--green);
+            font-size: 12px;
             font-weight: 700;
-            letter-spacing: 0.5px;
         }
 
-        .pulse-dot {
-            width: 10px;
-            height: 10px;
-            background-color: var(--status-green);
+        .dot {
+            width: 8px;
+            height: 8px;
+            background-color: var(--green);
             border-radius: 50%;
-            box-shadow: 0 0 12px var(--status-green);
+            box-shadow: 0 0 10px var(--green);
             animation: pulse 1.8s infinite;
         }
 
         @keyframes pulse {
-            0% { transform: scale(0.9); opacity: 0.7; }
+            0%, 100% { transform: scale(0.9); opacity: 0.6; }
             50% { transform: scale(1.3); opacity: 1; }
-            100% { transform: scale(0.9); opacity: 0.7; }
-        }
-
-        /* Active Sessions Grid */
-        .section-title {
-            font-size: 13px;
-            font-weight: 700;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 16px;
         }
 
         .player-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
             gap: 16px;
-            max-height: 400px;
             overflow-y: auto;
-            padding-right: 4px;
+            flex: 1;
+            padding-right: 6px;
         }
 
         .player-card {
-            background-color: var(--bg-card);
-            border: 1px solid var(--border-color);
-            border-radius: 14px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border-glass);
+            border-radius: 16px;
             padding: 18px;
             display: flex;
             flex-direction: column;
             gap: 10px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            transition: transform 0.2s ease, border-color 0.2s ease;
         }
 
         .player-card:hover {
-            transform: translateY(-2px);
-            border-color: var(--accent-color);
+            transform: translateY(-3px);
+            border-color: var(--accent);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
         }
 
         .player-card .nickname {
-            font-weight: 800;
             font-size: 17px;
-            color: #ffffff;
+            font-weight: 800;
+            color: #fff;
         }
 
-        .player-card .info-row {
+        .info-row {
             display: flex;
             justify-content: space-between;
-            align-items: center;
-            font-size: 13px;
+            font-size: 12px;
             color: var(--text-muted);
+            align-items: center;
         }
 
-        .player-card .room-tag {
-            background-color: rgba(239, 68, 68, 0.15);
-            color: var(--tag-red);
+        .room-badge {
+            background: rgba(239, 68, 68, 0.15);
+            color: var(--red);
             border: 1px solid rgba(239, 68, 68, 0.3);
-            padding: 3px 10px;
+            padding: 2px 8px;
             border-radius: 6px;
             font-family: monospace;
             font-weight: 700;
-            font-size: 12px;
         }
 
-        .player-card .id-tag {
-            font-family: monospace;
-            background-color: var(--bg-secondary);
-            padding: 3px 8px;
-            border-radius: 5px;
-            color: #d1d5db;
-        }
-
-        .empty-state {
-            background-color: var(--bg-secondary);
-            border: 2px dashed var(--border-color);
-            border-radius: 14px;
-            padding: 50px 20px;
-            text-align: center;
-            color: var(--text-muted);
-            grid-column: 1 / -1;
-            font-size: 14px;
-        }
-
-        /* Right Sidebar (History) */
-        .sidebar {
-            width: 360px;
-            background-color: var(--bg-secondary);
-            border-left: 1px solid var(--border-color);
-            padding: 36px 28px;
+        /* Right Floating Bubble (History) */
+        .history-bubble {
+            flex: 0.9;
+            background: var(--bg-glass);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--border-glass);
+            border-radius: 30px; /* Bubble styling */
+            padding: 32px;
+            height: 90%; /* Sits visually centered near middle */
             display: flex;
             flex-direction: column;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), inset 0 0 20px rgba(255, 255, 255, 0.02);
+            transition: transform 0.3s ease;
         }
 
-        .sidebar h2 {
-            font-size: 18px;
-            margin-top: 0;
-            margin-bottom: 20px;
-            color: #ffffff;
+        .history-bubble h2 {
+            font-size: 16px;
             font-weight: 800;
-            letter-spacing: 0.5px;
+            letter-spacing: 1px;
+            margin-bottom: 16px;
+            color: #fff;
+            text-transform: uppercase;
         }
 
         .search-box {
             width: 100%;
-            padding: 14px 18px;
-            background-color: var(--bg-primary);
-            border: 1px solid var(--border-color);
-            border-radius: 10px;
-            color: #ffffff;
+            padding: 12px 16px;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border-glass);
+            border-radius: 14px;
+            color: #fff;
             outline: none;
-            margin-bottom: 20px;
-            font-size: 14px;
+            margin-bottom: 16px;
+            font-size: 13px;
+            transition: border-color 0.2s;
         }
 
         .search-box:focus {
-            border-color: var(--accent-color);
+            border-color: var(--accent);
+            box-shadow: 0 0 15px var(--accent-glow);
         }
 
-        .stored-list {
+        .history-list {
             list-style: none;
-            padding: 0;
-            margin: 0;
             overflow-y: auto;
             flex: 1;
+            padding-right: 4px;
         }
 
-        .stored-item {
-            background-color: var(--bg-card);
-            border: 1px solid var(--border-color);
-            padding: 14px;
+        .history-item {
+            background: rgba(255, 255, 255, 0.025);
+            border: 1px solid var(--border-glass);
+            padding: 12px 16px;
             margin-bottom: 10px;
-            border-radius: 8px;
-            font-size: 13px;
+            border-radius: 12px;
+            font-size: 12px;
             font-family: monospace;
             word-break: break-all;
             color: #d1d5db;
         }
+
+        .history-item:hover {
+            border-color: var(--accent);
+            background: rgba(99, 102, 241, 0.08);
+        }
+
+        .empty-state {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px dashed var(--border-glass);
+            border-radius: 16px;
+            padding: 40px;
+            text-align: center;
+            color: var(--text-muted);
+            grid-column: 1 / -1;
+            font-size: 13px;
+        }
+
+        /* Scrollbar Styling */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
     </style>
 </head>
 <body>
 
-    <!-- Main Content Vertically Centered -->
-    <div class="main-content">
-        <div class="content-wrapper">
-            <div class="header-section">
-                <div class="dashboard-title">FlowMenu Dashboard</div>
-                
-                <div class="big-online-banner">
-                    <div class="big-online-text">
-                        ONLINE: <span id="onlineCount">0</span>
-                    </div>
-                    <div class="live-indicator">
-                        <div class="pulse-dot"></div>
-                        LIVE API
-                    </div>
+    <!-- Ambient Glowing Orbs -->
+    <div class="bg-orb orb-1"></div>
+    <div class="bg-orb orb-2"></div>
+
+    <!-- Centered Dashboard Container -->
+    <div class="dashboard-container">
+        
+        <!-- Left Main Panel -->
+        <div class="main-card">
+            <div class="header-title">FlowMenu Dashboard</div>
+            
+            <div class="online-banner">
+                <div class="online-count">ONLINE: <span id="onlineCount">0</span></div>
+                <div class="live-tag">
+                    <div class="dot"></div> LIVE
                 </div>
             </div>
 
-            <div class="section-title">Connected Active Players</div>
-            
             <div id="activePlayersGrid" class="player-grid">
-                <div class="empty-state">No players currently connected</div>
+                <div class="empty-state">No active players online</div>
             </div>
         </div>
-    </div>
 
-    <!-- Sidebar: History / Stored Player IDs -->
-    <div class="sidebar">
-        <h2>History</h2>
-        <input type="text" id="searchInput" class="search-box" placeholder="Search Player ID..." onkeyup="filterStoredPlayers()">
-        
-        <ul id="storedList" class="stored-list">
-            <!-- Populated via JavaScript -->
-        </ul>
+        <!-- Right Floating History Bubble -->
+        <div class="history-bubble">
+            <h2>History</h2>
+            <input type="text" id="searchInput" class="search-box" placeholder="Search Player ID..." oninput="filterHistory()">
+            
+            <ul id="historyList" class="history-list">
+                <!-- Populated via optimized JS -->
+            </ul>
+        </div>
+
     </div>
 
     <script>
-        let allStoredIds = [];
+        let cachedStoredIds = [];
 
         async function fetchStats() {
             try {
                 const response = await fetch('/api/stats');
                 const data = await response.json();
                 
-                // Update Big Online Counter
-                document.getElementById('onlineCount').innerText = data.online_count || 0;
+                // Update Online Counter
+                document.getElementById('onlineCount').textContent = data.online_count || 0;
 
-                // Render Connected Active Players
+                // Render Live Connected Players
                 renderActivePlayers(data.players || []);
 
-                // Update & Render History List
-                allStoredIds = data.stored_player_ids || [];
-                renderStoredPlayers(allStoredIds);
+                // Update History List only if changed (Optimization)
+                const newIds = data.stored_player_ids || [];
+                if (JSON.stringify(newIds) !== JSON.stringify(cachedStoredIds)) {
+                    cachedStoredIds = newIds;
+                    renderHistoryList(cachedStoredIds);
+                }
             } catch (err) {
-                console.error("Error updating stats:", err);
+                console.error("Error fetching stats:", err);
             }
         }
 
+        // Optimized DOM rendering with DocumentFragment
         function renderActivePlayers(players) {
             const grid = document.getElementById('activePlayersGrid');
-            grid.innerHTML = '';
-
+            
             if (players.length === 0) {
-                grid.innerHTML = '<div class="empty-state">No players currently connected</div>';
+                grid.innerHTML = '<div class="empty-state">No active players online</div>';
                 return;
             }
+
+            const fragment = document.createDocumentFragment();
 
             players.forEach(p => {
                 const card = document.createElement('div');
@@ -400,47 +436,54 @@ HTML_TEMPLATE = """
                 card.innerHTML = `
                     <div class="nickname">${escapeHtml(p.nickname)}</div>
                     <div class="info-row">
-                        <span>Room Code</span>
-                        <span class="room-tag">${escapeHtml(p.room)}</span>
+                        <span>Room</span>
+                        <span class="room-badge">${escapeHtml(p.room)}</span>
                     </div>
                     <div class="info-row">
-                        <span>Player ID</span>
-                        <span class="id-tag">${escapeHtml(p.player_id)}</span>
+                        <span>ID</span>
+                        <span style="font-family:monospace;">${escapeHtml(p.player_id)}</span>
                     </div>
                 `;
-                grid.appendChild(card);
+                fragment.appendChild(card);
             });
+
+            grid.innerHTML = '';
+            grid.appendChild(fragment);
         }
 
-        function renderStoredPlayers(idArray) {
-            const list = document.getElementById('storedList');
+        function renderHistoryList(idArray) {
+            const list = document.getElementById('historyList');
             const searchTerm = document.getElementById('searchInput').value.toLowerCase();
-            list.innerHTML = '';
-
+            
             const filtered = idArray.filter(id => id.toLowerCase().includes(searchTerm));
 
             if (filtered.length === 0) {
-                list.innerHTML = '<li class="stored-item" style="color:#6b7280; text-align:center;">No IDs found</li>';
+                list.innerHTML = '<li class="history-item" style="color:#6b7280; text-align:center;">No IDs found</li>';
                 return;
             }
 
+            const fragment = document.createDocumentFragment();
+
             filtered.forEach(id => {
                 const li = document.createElement('li');
-                li.className = 'stored-item';
+                li.className = 'history-item';
                 li.textContent = id;
-                list.appendChild(li);
+                fragment.appendChild(li);
             });
+
+            list.innerHTML = '';
+            list.appendChild(fragment);
         }
 
-        function filterStoredPlayers() {
-            renderStoredPlayers(allStoredIds);
+        function filterHistory() {
+            renderHistoryList(cachedStoredIds);
         }
 
         function escapeHtml(str) {
             return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
         }
 
-        // Auto-refresh every 3 seconds
+        // Poll API every 3 seconds
         setInterval(fetchStats, 3000);
         fetchStats();
     </script>
