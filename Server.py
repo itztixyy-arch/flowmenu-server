@@ -210,7 +210,6 @@ HTML_TEMPLATE = """
             box-shadow: 0 0 8px var(--green);
         }
 
-        /* ACTIVE PLAYERS STRETCHED LIST */
         .player-list {
             display: flex;
             flex-direction: column;
@@ -258,7 +257,6 @@ HTML_TEMPLATE = """
             opacity: 0.8;
         }
 
-        /* IN-ROOM BADGE */
         .room-badge {
             background: rgba(239, 68, 68, 0.15);
             color: var(--red);
@@ -271,7 +269,6 @@ HTML_TEMPLATE = """
             letter-spacing: 1px;
         }
 
-        /* NOT IN ROOM BADGE */
         .room-badge.not-in-room {
             background: rgba(156, 163, 175, 0.1);
             color: var(--text-muted);
@@ -475,3 +472,11 @@ HTML_TEMPLATE = """
     </script>
 </body>
 </html>
+"""
+
+@app.route('/')
+def home():
+    return render_template_string(HTML_TEMPLATE)
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000)
