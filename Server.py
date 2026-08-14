@@ -9,8 +9,11 @@ app = Flask(__name__)
 active_clients = {}
 TIMEOUT = 12
 
-# Unique stored player IDs
+# Unique stored player IDs (Prevents duplicate logs)
 stored_player_ids = set()
+
+# Maps unique stored IDs -> Nickname (Displayed in History)
+stored_history = {}
 
 def cleanup_inactive_players():
     current_time = time.time()
@@ -31,19 +34,26 @@ def ping():
     
     player_name = data.get("player_name", "").strip()
     player_id = data.get("player_id", "").strip()
-    room_code = data.get("room_code", "NOT IN ROOM")
+    raw_room = data.get("room_code", "").strip()
+
+    # Normalize room code
+    room_code = raw_room if raw_room else "NOT IN ROOM"
 
     if not player_name or player_name.lower() == "unknown" or re.match(r"^gorilla\d+$", player_name.lower()):
         return jsonify({"status": "ignored", "reason": "unloaded_nickname"}), 200
 
+    # Always track active players on live list (including "NOT IN ROOM")
     active_clients[player_name] = {
         "room": room_code,
         "player_id": player_id if player_id else "Unknown ID",
         "last_seen": time.time()
     }
 
-    if player_id:
-        stored_player_ids.add(player_id)
+    # HISTORY CHECK: Store unique ID ONLY after they join a real room
+    if room_code.upper() != "NOT IN ROOM" and player_id:
+        if player_id not in stored_player_ids:
+            stored_player_ids.add(player_id)
+            stored_history[player_id] = player_name
 
     return jsonify({"status": "ok", "online_count": len(active_clients)}), 200
 
@@ -58,10 +68,11 @@ def get_stats():
         }
         for name, data in active_clients.items()
     ]
+    
     return jsonify({
         "online_count": len(active_clients),
         "players": players,
-        "stored_player_ids": list(stored_player_ids)
+        "history_nicknames": list(stored_history.values())
     })
 
 # ----------------- FRONTEND UI -----------------
@@ -82,6 +93,7 @@ HTML_TEMPLATE = """
             --text-muted: #9ca3af;
             --green: #10b981;
             --red: #ef4444;
+            --gray-badge: rgba(255, 255, 255, 0.1);
         }
 
         * {
@@ -102,7 +114,6 @@ HTML_TEMPLATE = """
             align-items: center;
         }
 
-        /* ANIMATED GRID PATTERN BACKGROUND */
         .bg-grid-animation {
             position: absolute;
             top: 0;
@@ -121,7 +132,6 @@ HTML_TEMPLATE = """
             100% { transform: translate(-32px, -32px); }
         }
 
-        /* Main Dashboard Container */
         .dashboard-container {
             position: relative;
             z-index: 10;
@@ -133,7 +143,6 @@ HTML_TEMPLATE = """
             align-items: center;
         }
 
-        /* Left Main Panel */
         .main-card {
             flex: 1.4;
             background: var(--bg-glass);
@@ -180,7 +189,6 @@ HTML_TEMPLATE = """
             text-shadow: 0 0 15px rgba(16, 185, 129, 0.4);
         }
 
-        /* STATIC DOT LIVE INDICATOR */
         .live-tag {
             display: flex;
             align-items: center;
@@ -194,7 +202,6 @@ HTML_TEMPLATE = """
             font-weight: 700;
         }
 
-        /* STATIC GREEN DOT (NO ANIMATION) */
         .static-dot {
             width: 8px;
             height: 8px;
@@ -203,10 +210,11 @@ HTML_TEMPLATE = """
             box-shadow: 0 0 8px var(--green);
         }
 
-        .player-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-            gap: 16px;
+        /* ACTIVE PLAYERS STRETCHED LIST */
+        .player-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
             overflow-y: auto;
             flex: 1;
             padding-right: 6px;
@@ -215,45 +223,63 @@ HTML_TEMPLATE = """
         .player-card {
             background: rgba(255, 255, 255, 0.03);
             border: 1px solid var(--border-glass);
-            border-radius: 16px;
-            padding: 18px;
+            border-radius: 14px;
+            padding: 14px 22px;
             display: flex;
-            flex-direction: column;
-            gap: 10px;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
             transition: transform 0.2s ease, border-color 0.2s ease;
         }
 
         .player-card:hover {
-            transform: translateY(-3px);
+            transform: translateX(3px);
             border-color: var(--accent);
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+            background: rgba(99, 102, 241, 0.05);
+        }
+
+        .player-left {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
         }
 
         .player-card .nickname {
-            font-size: 17px;
-            font-weight: 800;
+            font-size: 22px;
+            font-weight: 900;
             color: #fff;
+            letter-spacing: -0.5px;
         }
 
-        .info-row {
-            display: flex;
-            justify-content: space-between;
-            font-size: 12px;
+        .player-card .player-id {
+            font-size: 11px;
+            font-family: monospace;
             color: var(--text-muted);
-            align-items: center;
+            opacity: 0.8;
         }
 
+        /* IN-ROOM BADGE */
         .room-badge {
             background: rgba(239, 68, 68, 0.15);
             color: var(--red);
-            border: 1px solid rgba(239, 68, 68, 0.3);
-            padding: 2px 8px;
-            border-radius: 6px;
+            border: 1px solid rgba(239, 68, 68, 0.35);
+            padding: 6px 16px;
+            border-radius: 10px;
             font-family: monospace;
+            font-weight: 900;
+            font-size: 18px;
+            letter-spacing: 1px;
+        }
+
+        /* NOT IN ROOM BADGE */
+        .room-badge.not-in-room {
+            background: rgba(156, 163, 175, 0.1);
+            color: var(--text-muted);
+            border: 1px solid rgba(156, 163, 175, 0.25);
+            font-size: 13px;
             font-weight: 700;
         }
 
-        /* History Bubble Near Middle */
         .history-bubble {
             flex: 0.9;
             background: var(--bg-glass);
@@ -306,8 +332,8 @@ HTML_TEMPLATE = """
             padding: 12px 16px;
             margin-bottom: 10px;
             border-radius: 12px;
-            font-size: 12px;
-            font-family: monospace;
+            font-size: 14px;
+            font-weight: 700;
             word-break: break-all;
             color: #d1d5db;
         }
@@ -319,7 +345,6 @@ HTML_TEMPLATE = """
             padding: 40px;
             text-align: center;
             color: var(--text-muted);
-            grid-column: 1 / -1;
             font-size: 13px;
         }
 
@@ -331,13 +356,10 @@ HTML_TEMPLATE = """
 </head>
 <body>
 
-    <!-- Animated Grid Background -->
     <div class="bg-grid-animation"></div>
 
-    <!-- Centered Dashboard Container -->
     <div class="dashboard-container">
         
-        <!-- Left Main Panel -->
         <div class="main-card">
             <div class="header-title">FlowMenu Dashboard</div>
             
@@ -348,25 +370,24 @@ HTML_TEMPLATE = """
                 </div>
             </div>
 
-            <div id="activePlayersGrid" class="player-grid">
+            <div id="activePlayersList" class="player-list">
                 <div class="empty-state">No active players online</div>
             </div>
         </div>
 
-        <!-- Right Floating History Bubble -->
         <div class="history-bubble">
             <h2>History</h2>
-            <input type="text" id="searchInput" class="search-box" placeholder="Search Player ID..." oninput="filterHistory()">
+            <input type="text" id="searchInput" class="search-box" placeholder="Search Nicknames..." oninput="filterHistory()">
             
             <ul id="historyList" class="history-list">
-                <!-- Populated via JS -->
+                <!-- History Items -->
             </ul>
         </div>
 
     </div>
 
     <script>
-        let cachedStoredIds = [];
+        let cachedNicknames = [];
 
         async function fetchStats() {
             try {
@@ -376,10 +397,10 @@ HTML_TEMPLATE = """
                 document.getElementById('onlineCount').textContent = data.online_count || 0;
                 renderActivePlayers(data.players || []);
 
-                const newIds = data.stored_player_ids || [];
-                if (JSON.stringify(newIds) !== JSON.stringify(cachedStoredIds)) {
-                    cachedStoredIds = newIds;
-                    renderHistoryList(cachedStoredIds);
+                const newNicks = data.history_nicknames || [];
+                if (JSON.stringify(newNicks) !== JSON.stringify(cachedNicknames)) {
+                    cachedNicknames = newNicks;
+                    renderHistoryList(cachedNicknames);
                 }
             } catch (err) {
                 console.error("Error fetching stats:", err);
@@ -387,53 +408,53 @@ HTML_TEMPLATE = """
         }
 
         function renderActivePlayers(players) {
-            const grid = document.getElementById('activePlayersGrid');
+            const list = document.getElementById('activePlayersList');
             
             if (players.length === 0) {
-                grid.innerHTML = '<div class="empty-state">No active players online</div>';
+                list.innerHTML = '<div class="empty-state">No active players online</div>';
                 return;
             }
 
             const fragment = document.createDocumentFragment();
 
             players.forEach(p => {
+                const isNotInRoom = !p.room || p.room.toUpperCase() === "NOT IN ROOM";
+                const badgeClass = isNotInRoom ? "room-badge not-in-room" : "room-badge";
+                const displayRoom = isNotInRoom ? "NOT IN ROOM" : p.room;
+
                 const card = document.createElement('div');
                 card.className = 'player-card';
                 card.innerHTML = `
-                    <div class="nickname">${escapeHtml(p.nickname)}</div>
-                    <div class="info-row">
-                        <span>Room</span>
-                        <span class="room-badge">${escapeHtml(p.room)}</span>
+                    <div class="player-left">
+                        <div class="nickname">${escapeHtml(p.nickname)}</div>
+                        <div class="player-id">ID: ${escapeHtml(p.player_id)}</div>
                     </div>
-                    <div class="info-row">
-                        <span>ID</span>
-                        <span style="font-family:monospace;">${escapeHtml(p.player_id)}</span>
-                    </div>
+                    <div class="${badgeClass}">${escapeHtml(displayRoom)}</div>
                 `;
                 fragment.appendChild(card);
             });
 
-            grid.innerHTML = '';
-            grid.appendChild(fragment);
+            list.innerHTML = '';
+            list.appendChild(fragment);
         }
 
-        function renderHistoryList(idArray) {
+        function renderHistoryList(nicknameArray) {
             const list = document.getElementById('historyList');
             const searchTerm = document.getElementById('searchInput').value.toLowerCase();
             
-            const filtered = idArray.filter(id => id.toLowerCase().includes(searchTerm));
+            const filtered = nicknameArray.filter(nick => nick.toLowerCase().includes(searchTerm));
 
             if (filtered.length === 0) {
-                list.innerHTML = '<li class="history-item" style="color:#6b7280; text-align:center;">No IDs found</li>';
+                list.innerHTML = '<li class="history-item" style="color:#6b7280; text-align:center;">No nicknames logged</li>';
                 return;
             }
 
             const fragment = document.createDocumentFragment();
 
-            filtered.forEach(id => {
+            filtered.forEach(nick => {
                 const li = document.createElement('li');
                 li.className = 'history-item';
-                li.textContent = id;
+                li.textContent = nick;
                 fragment.appendChild(li);
             });
 
@@ -442,7 +463,7 @@ HTML_TEMPLATE = """
         }
 
         function filterHistory() {
-            renderHistoryList(cachedStoredIds);
+            renderHistoryList(cachedNicknames);
         }
 
         function escapeHtml(str) {
@@ -454,11 +475,3 @@ HTML_TEMPLATE = """
     </script>
 </body>
 </html>
-"""
-
-@app.route('/')
-def home():
-    return render_template_string(HTML_TEMPLATE)
-
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
