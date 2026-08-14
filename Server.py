@@ -76,17 +76,16 @@ HTML_TEMPLATE = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FlowMenu Admin Dashboard</title>
+    <title>FlowMenu Live Dashboard</title>
     <style>
         :root {
-            --bg-primary: #0f1015;
-            --bg-secondary: #17181f;
-            --bg-card: #1f212d;
+            --bg-primary: #0a0b0e;
+            --bg-secondary: #12141a;
+            --bg-card: #1a1d26;
             --accent-color: #6366f1;
-            --accent-glow: rgba(99, 102, 241, 0.25);
             --text-main: #f3f4f6;
             --text-muted: #9ca3af;
-            --border-color: #2e3142;
+            --border-color: #262936;
             --status-green: #10b981;
             --tag-red: #ef4444;
         }
@@ -106,120 +105,131 @@ HTML_TEMPLATE = """
             overflow: hidden;
         }
 
-        /* Main Left Dashboard Area */
+        /* Vertically Centered Main Left Dashboard Area */
         .main-content {
             flex: 1;
-            padding: 32px;
+            padding: 40px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center; /* Vertically Centers along Y-axis */
+            align-items: center;     /* Horizontally Centers Content Container */
             overflow-y: auto;
         }
 
-        .header-card {
-            background-color: var(--bg-secondary);
-            border: 1px solid var(--border-color);
-            border-radius: 16px;
-            padding: 24px 32px;
+        /* Container that locks width for a clean centered layout */
+        .content-wrapper {
+            width: 100%;
+            max-width: 900px;
+        }
+
+        .header-section {
             margin-bottom: 28px;
+        }
+
+        .dashboard-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--accent-color);
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            margin-bottom: 10px;
+            text-align: left;
+        }
+
+        /* HUGE ONLINE COUNT HEADER */
+        .big-online-banner {
+            background: linear-gradient(135deg, #171a24 0%, #11131b 100%);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 28px 36px;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
         }
 
-        .header-title-box {
+        .big-online-text {
+            font-size: 44px;
+            font-weight: 900;
+            letter-spacing: -1px;
+            color: #ffffff;
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 16px;
         }
 
-        .header-title-box h1 {
-            margin: 0;
-            font-size: 24px;
+        .big-online-text span {
+            color: var(--status-green);
+        }
+
+        .live-indicator {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background-color: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.25);
+            padding: 8px 16px;
+            border-radius: 20px;
+            color: var(--status-green);
+            font-size: 13px;
             font-weight: 700;
-            letter-spacing: -0.5px;
+            letter-spacing: 0.5px;
         }
 
-        .live-dot {
+        .pulse-dot {
             width: 10px;
             height: 10px;
             background-color: var(--status-green);
             border-radius: 50%;
-            box-shadow: 0 0 10px var(--status-green);
-            animation: pulse 2s infinite;
+            box-shadow: 0 0 12px var(--status-green);
+            animation: pulse 1.8s infinite;
         }
 
         @keyframes pulse {
-            0% { transform: scale(0.95); opacity: 0.8; }
-            50% { transform: scale(1.2); opacity: 1; }
-            100% { transform: scale(0.95); opacity: 0.8; }
+            0% { transform: scale(0.9); opacity: 0.7; }
+            50% { transform: scale(1.3); opacity: 1; }
+            100% { transform: scale(0.9); opacity: 0.7; }
         }
 
-        .badge {
-            background-color: rgba(16, 185, 129, 0.1);
-            border: 1px solid rgba(16, 185, 129, 0.3);
-            color: var(--status-green);
-            padding: 8px 18px;
-            border-radius: 30px;
-            font-size: 14px;
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        /* Live Active Players Grid */
-        .section-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 16px;
-        }
-
+        /* Active Sessions Grid */
         .section-title {
-            font-size: 14px;
+            font-size: 13px;
             font-weight: 700;
             color: var(--text-muted);
             text-transform: uppercase;
             letter-spacing: 1px;
+            margin-bottom: 16px;
         }
 
         .player-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-            gap: 18px;
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            gap: 16px;
+            max-height: 400px;
+            overflow-y: auto;
+            padding-right: 4px;
         }
 
         .player-card {
             background-color: var(--bg-card);
             border: 1px solid var(--border-color);
-            border-radius: 12px;
-            padding: 20px;
+            border-radius: 14px;
+            padding: 18px;
             display: flex;
             flex-direction: column;
-            gap: 12px;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .player-card::before {
-            content: '';
-            position: absolute;
-            left: 0;
-            top: 0;
-            height: 100%;
-            width: 4px;
-            background-color: var(--accent-color);
+            gap: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
         }
 
         .player-card:hover {
             transform: translateY(-2px);
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
             border-color: var(--accent-color);
         }
 
         .player-card .nickname {
-            font-weight: 700;
-            font-size: 18px;
-            color: #fff;
+            font-weight: 800;
+            font-size: 17px;
+            color: #ffffff;
         }
 
         .player-card .info-row {
@@ -244,49 +254,48 @@ HTML_TEMPLATE = """
         .player-card .id-tag {
             font-family: monospace;
             background-color: var(--bg-secondary);
-            padding: 2px 8px;
-            border-radius: 4px;
+            padding: 3px 8px;
+            border-radius: 5px;
             color: #d1d5db;
         }
 
         .empty-state {
             background-color: var(--bg-secondary);
             border: 2px dashed var(--border-color);
-            border-radius: 12px;
-            padding: 60px 20px;
+            border-radius: 14px;
+            padding: 50px 20px;
             text-align: center;
             color: var(--text-muted);
             grid-column: 1 / -1;
-            font-size: 15px;
+            font-size: 14px;
         }
 
-        /* Right Side Panel Styling (History) */
+        /* Right Sidebar (History) */
         .sidebar {
-            width: 340px;
+            width: 360px;
             background-color: var(--bg-secondary);
             border-left: 1px solid var(--border-color);
-            padding: 32px 24px;
+            padding: 36px 28px;
             display: flex;
             flex-direction: column;
         }
 
         .sidebar h2 {
-            font-size: 16px;
+            font-size: 18px;
             margin-top: 0;
-            margin-bottom: 18px;
-            color: #fff;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            font-weight: 700;
+            margin-bottom: 20px;
+            color: #ffffff;
+            font-weight: 800;
+            letter-spacing: 0.5px;
         }
 
         .search-box {
             width: 100%;
-            padding: 12px 16px;
+            padding: 14px 18px;
             background-color: var(--bg-primary);
             border: 1px solid var(--border-color);
             border-radius: 10px;
-            color: #fff;
+            color: #ffffff;
             outline: none;
             margin-bottom: 20px;
             font-size: 14px;
@@ -294,7 +303,6 @@ HTML_TEMPLATE = """
 
         .search-box:focus {
             border-color: var(--accent-color);
-            box-shadow: 0 0 12px var(--accent-glow);
         }
 
         .stored-list {
@@ -316,43 +324,42 @@ HTML_TEMPLATE = """
             word-break: break-all;
             color: #d1d5db;
         }
-
-        .stored-item:hover {
-            border-color: var(--accent-color);
-            background-color: rgba(99, 102, 241, 0.05);
-        }
     </style>
 </head>
 <body>
 
-    <!-- Main Content: Active Players -->
+    <!-- Main Content Vertically Centered -->
     <div class="main-content">
-        <div class="header-card">
-            <div class="header-title-box">
-                <div class="live-dot"></div>
-                <h1>FlowMenu Live Dashboard</h1>
+        <div class="content-wrapper">
+            <div class="header-section">
+                <div class="dashboard-title">FlowMenu Dashboard</div>
+                
+                <div class="big-online-banner">
+                    <div class="big-online-text">
+                        ONLINE: <span id="onlineCount">0</span>
+                    </div>
+                    <div class="live-indicator">
+                        <div class="pulse-dot"></div>
+                        LIVE API
+                    </div>
+                </div>
             </div>
-            <div class="badge">
-                <span>●</span> Online: <strong id="onlineCount">0</strong>
-            </div>
-        </div>
 
-        <div class="section-header">
-            <div class="section-title">Active Sessions</div>
-        </div>
-        
-        <div id="activePlayersGrid" class="player-grid">
-            <div class="empty-state">No players currently connected</div>
+            <div class="section-title">Connected Active Players</div>
+            
+            <div id="activePlayersGrid" class="player-grid">
+                <div class="empty-state">No players currently connected</div>
+            </div>
         </div>
     </div>
 
-    <!-- Sidebar: History / Unique Player IDs -->
+    <!-- Sidebar: History / Stored Player IDs -->
     <div class="sidebar">
         <h2>History</h2>
         <input type="text" id="searchInput" class="search-box" placeholder="Search Player ID..." onkeyup="filterStoredPlayers()">
         
         <ul id="storedList" class="stored-list">
-            <!-- Dynamically populated -->
+            <!-- Populated via JavaScript -->
         </ul>
     </div>
 
@@ -364,13 +371,13 @@ HTML_TEMPLATE = """
                 const response = await fetch('/api/stats');
                 const data = await response.json();
                 
-                // Update counter
+                // Update Big Online Counter
                 document.getElementById('onlineCount').innerText = data.online_count || 0;
 
-                // Render Live Connected Players
+                // Render Connected Active Players
                 renderActivePlayers(data.players || []);
 
-                // Update & Render Unique History List
+                // Update & Render History List
                 allStoredIds = data.stored_player_ids || [];
                 renderStoredPlayers(allStoredIds);
             } catch (err) {
@@ -413,7 +420,7 @@ HTML_TEMPLATE = """
             const filtered = idArray.filter(id => id.toLowerCase().includes(searchTerm));
 
             if (filtered.length === 0) {
-                list.innerHTML = '<li class="stored-item" style="color:#6b7280; text-align:center;">No IDs matched</li>';
+                list.innerHTML = '<li class="stored-item" style="color:#6b7280; text-align:center;">No IDs found</li>';
                 return;
             }
 
