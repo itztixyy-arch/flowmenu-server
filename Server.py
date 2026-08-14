@@ -9,7 +9,7 @@ app = Flask(__name__)
 active_clients = {}
 TIMEOUT = 12
 
-# Unique stored player IDs (Set for O(1) duplicate prevention)
+# Unique stored player IDs
 stored_player_ids = set()
 
 def cleanup_inactive_players():
@@ -76,9 +76,8 @@ HTML_TEMPLATE = """
     <style>
         :root {
             --accent: #6366f1;
-            --accent-glow: rgba(99, 102, 241, 0.4);
-            --bg-glass: rgba(18, 20, 29, 0.65);
-            --border-glass: rgba(255, 255, 255, 0.08);
+            --bg-glass: rgba(18, 20, 29, 0.70);
+            --border-glass: rgba(255, 255, 255, 0.1);
             --text-main: #f3f4f6;
             --text-muted: #9ca3af;
             --green: #10b981;
@@ -93,7 +92,7 @@ HTML_TEMPLATE = """
         }
 
         body {
-            background-color: #08090c;
+            background-color: #060709;
             color: var(--text-main);
             height: 100vh;
             overflow: hidden;
@@ -103,40 +102,47 @@ HTML_TEMPLATE = """
             align-items: center;
         }
 
-        /* Ambient Animated Background Orbs */
-        .bg-orb {
+        /* BIG WHITE BUBBLE IN THE MIDDLE */
+        .white-center-orb {
             position: absolute;
+            width: 650px;
+            height: 650px;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.18) 0%, rgba(255, 255, 255, 0.03) 50%, rgba(0,0,0,0) 70%);
             border-radius: 50%;
-            filter: blur(90px);
-            opacity: 0.35;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            filter: blur(60px);
             z-index: 0;
-            animation: float 14s ease-in-out infinite alternate;
+            pointer-events: none;
+            animation: pulseWhite 8s ease-in-out infinite alternate;
         }
 
-        .orb-1 {
-            width: 450px;
-            height: 450px;
-            background: #6366f1;
-            top: -10%;
-            left: -5%;
+        @keyframes pulseWhite {
+            0% { transform: translate(-50%, -50%) scale(0.95); opacity: 0.8; }
+            100% { transform: translate(-50%, -50%) scale(1.1); opacity: 1; }
         }
 
-        .orb-2 {
-            width: 500px;
-            height: 500px;
-            background: #a855f7;
-            bottom: -15%;
-            right: -10%;
-            animation-delay: -7s;
+        /* ANIMATED GRID PATTERN BACKGROUND */
+        .bg-grid-animation {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 200%;
+            height: 200%;
+            background-image: radial-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px);
+            background-size: 32px 32px;
+            z-index: 0;
+            opacity: 0.4;
+            animation: moveGrid 20s linear infinite;
         }
 
-        @keyframes float {
-            0% { transform: translate(0, 0) scale(1); }
-            50% { transform: translate(60px, 40px) scale(1.1); }
-            100% { transform: translate(-30px, 80px) scale(0.95); }
+        @keyframes moveGrid {
+            0% { transform: translate(0, 0); }
+            100% { transform: translate(-32px, -32px); }
         }
 
-        /* Dashboard Container */
+        /* Main Dashboard Container */
         .dashboard-container {
             position: relative;
             z-index: 10;
@@ -152,15 +158,15 @@ HTML_TEMPLATE = """
         .main-card {
             flex: 1.4;
             background: var(--bg-glass);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
             border: 1px solid var(--border-glass);
             border-radius: 24px;
             padding: 36px;
             height: 100%;
             display: flex;
             flex-direction: column;
-            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
         }
 
         .header-title {
@@ -195,6 +201,7 @@ HTML_TEMPLATE = """
             text-shadow: 0 0 15px rgba(16, 185, 129, 0.4);
         }
 
+        /* STATIC DOT LIVE INDICATOR */
         .live-tag {
             display: flex;
             align-items: center;
@@ -208,18 +215,13 @@ HTML_TEMPLATE = """
             font-weight: 700;
         }
 
-        .dot {
+        /* STATIC GREEN DOT (NO ANIMATION) */
+        .static-dot {
             width: 8px;
             height: 8px;
             background-color: var(--green);
             border-radius: 50%;
-            box-shadow: 0 0 10px var(--green);
-            animation: pulse 1.8s infinite;
-        }
-
-        @keyframes pulse {
-            0%, 100% { transform: scale(0.9); opacity: 0.6; }
-            50% { transform: scale(1.3); opacity: 1; }
+            box-shadow: 0 0 8px var(--green);
         }
 
         .player-grid {
@@ -272,20 +274,19 @@ HTML_TEMPLATE = """
             font-weight: 700;
         }
 
-        /* Right Floating Bubble (History) */
+        /* History Bubble Near Middle */
         .history-bubble {
             flex: 0.9;
             background: var(--bg-glass);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
             border: 1px solid var(--border-glass);
-            border-radius: 30px; /* Bubble styling */
+            border-radius: 30px;
             padding: 32px;
-            height: 90%; /* Sits visually centered near middle */
+            height: 90%;
             display: flex;
             flex-direction: column;
-            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), inset 0 0 20px rgba(255, 255, 255, 0.02);
-            transition: transform 0.3s ease;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
         }
 
         .history-bubble h2 {
@@ -307,12 +308,10 @@ HTML_TEMPLATE = """
             outline: none;
             margin-bottom: 16px;
             font-size: 13px;
-            transition: border-color 0.2s;
         }
 
         .search-box:focus {
             border-color: var(--accent);
-            box-shadow: 0 0 15px var(--accent-glow);
         }
 
         .history-list {
@@ -334,11 +333,6 @@ HTML_TEMPLATE = """
             color: #d1d5db;
         }
 
-        .history-item:hover {
-            border-color: var(--accent);
-            background: rgba(99, 102, 241, 0.08);
-        }
-
         .empty-state {
             background: rgba(255, 255, 255, 0.02);
             border: 1px dashed var(--border-glass);
@@ -350,7 +344,6 @@ HTML_TEMPLATE = """
             font-size: 13px;
         }
 
-        /* Scrollbar Styling */
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
@@ -359,9 +352,11 @@ HTML_TEMPLATE = """
 </head>
 <body>
 
-    <!-- Ambient Glowing Orbs -->
-    <div class="bg-orb orb-1"></div>
-    <div class="bg-orb orb-2"></div>
+    <!-- Animated Grid Background -->
+    <div class="bg-grid-animation"></div>
+
+    <!-- Big Glowing White Orb in Middle -->
+    <div class="white-center-orb"></div>
 
     <!-- Centered Dashboard Container -->
     <div class="dashboard-container">
@@ -373,7 +368,7 @@ HTML_TEMPLATE = """
             <div class="online-banner">
                 <div class="online-count">ONLINE: <span id="onlineCount">0</span></div>
                 <div class="live-tag">
-                    <div class="dot"></div> LIVE
+                    <div class="static-dot"></div> LIVE
                 </div>
             </div>
 
@@ -388,7 +383,7 @@ HTML_TEMPLATE = """
             <input type="text" id="searchInput" class="search-box" placeholder="Search Player ID..." oninput="filterHistory()">
             
             <ul id="historyList" class="history-list">
-                <!-- Populated via optimized JS -->
+                <!-- Populated via JS -->
             </ul>
         </div>
 
@@ -402,13 +397,9 @@ HTML_TEMPLATE = """
                 const response = await fetch('/api/stats');
                 const data = await response.json();
                 
-                // Update Online Counter
                 document.getElementById('onlineCount').textContent = data.online_count || 0;
-
-                // Render Live Connected Players
                 renderActivePlayers(data.players || []);
 
-                // Update History List only if changed (Optimization)
                 const newIds = data.stored_player_ids || [];
                 if (JSON.stringify(newIds) !== JSON.stringify(cachedStoredIds)) {
                     cachedStoredIds = newIds;
@@ -419,7 +410,6 @@ HTML_TEMPLATE = """
             }
         }
 
-        // Optimized DOM rendering with DocumentFragment
         function renderActivePlayers(players) {
             const grid = document.getElementById('activePlayersGrid');
             
@@ -483,7 +473,6 @@ HTML_TEMPLATE = """
             return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
         }
 
-        // Poll API every 3 seconds
         setInterval(fetchStats, 3000);
         fetchStats();
     </script>
