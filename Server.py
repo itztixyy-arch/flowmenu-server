@@ -102,27 +102,6 @@ HTML_TEMPLATE = """
             align-items: center;
         }
 
-        /* BIG WHITE BUBBLE IN THE MIDDLE */
-        .white-center-orb {
-            position: absolute;
-            width: 650px;
-            height: 650px;
-            background: radial-gradient(circle, rgba(255, 255, 255, 0.18) 0%, rgba(255, 255, 255, 0.03) 50%, rgba(0,0,0,0) 70%);
-            border-radius: 50%;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            filter: blur(60px);
-            z-index: 0;
-            pointer-events: none;
-            animation: pulseWhite 8s ease-in-out infinite alternate;
-        }
-
-        @keyframes pulseWhite {
-            0% { transform: translate(-50%, -50%) scale(0.95); opacity: 0.8; }
-            100% { transform: translate(-50%, -50%) scale(1.1); opacity: 1; }
-        }
-
         /* ANIMATED GRID PATTERN BACKGROUND */
         .bg-grid-animation {
             position: absolute;
@@ -354,9 +333,6 @@ HTML_TEMPLATE = """
 
     <!-- Animated Grid Background -->
     <div class="bg-grid-animation"></div>
-
-    <!-- Big Glowing White Orb in Middle -->
-    <div class="white-center-orb"></div>
 
     <!-- Centered Dashboard Container -->
     <div class="dashboard-container">
