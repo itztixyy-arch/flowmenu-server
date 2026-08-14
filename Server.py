@@ -9,7 +9,7 @@ app = Flask(__name__)
 active_clients = {}
 TIMEOUT = 12
 
-# Unique stored player IDs (so duplicates are ignored)
+# Unique stored player IDs (duplicates ignored)
 stored_player_ids = set()
 
 def cleanup_inactive_players():
@@ -41,13 +41,13 @@ def ping():
     # Save active session details
     active_clients[player_name] = {
         "room": room_code,
-        "player_id": player_id,
+        "player_id": player_id if player_id else "Unknown ID",
         "last_seen": time.time()
     }
 
     # CHECK & ADD UNIQUE PLAYER ID
     if player_id:
-        stored_player_ids.add(player_id)  # Sets automatically ignore duplicates
+        stored_player_ids.add(player_id)
 
     return jsonify({"status": "ok", "online_count": len(active_clients)}), 200
 
@@ -55,13 +55,17 @@ def ping():
 def get_stats():
     cleanup_inactive_players()
     players = [
-        {"nickname": name, "room": data["room"], "player_id": data.get("player_id", "N/A")}
+        {
+            "nickname": name, 
+            "room": data["room"], 
+            "player_id": data.get("player_id", "N/A")
+        }
         for name, data in active_clients.items()
     ]
     return jsonify({
         "online_count": len(active_clients),
         "players": players,
-        "stored_player_ids": list(stored_player_ids) # Sends unique player list to website
+        "stored_player_ids": list(stored_player_ids)
     })
 
 # ----------------- WEB FRONTEND ROUTE -----------------
@@ -71,60 +75,147 @@ HTML_TEMPLATE = """
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>FlowMenu Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FlowMenu Live Dashboard</title>
     <style>
+        * {
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #1e1f22;
-            color: #ffffff;
+            background-color: #111214;
+            color: #dbdee1;
             display: flex;
             margin: 0;
             height: 100vh;
             overflow: hidden;
         }
 
-        /* Main Dashboard Content Area */
+        /* Main Left Dashboard Area */
         .main-content {
             flex: 1;
             padding: 30px;
             overflow-y: auto;
         }
 
-        .card {
+        .header-card {
+            background-color: #1e1f22;
+            border: 1px solid #2b2d31;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .header-card h1 {
+            margin: 0;
+            font-size: 22px;
+            color: #fff;
+        }
+
+        .badge {
             background-color: #2b2d31;
-            padding: 20px;
-            border-radius: 8px;
-            margin-bottom: 20px;
+            border: 1px solid #35363c;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .badge span {
+            color: #23a55a;
+        }
+
+        /* Live Active Players Table */
+        .section-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #949ba4;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .player-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 16px;
+        }
+
+        .player-card {
+            background-color: #1e1f22;
+            border: 1px solid #2b2d31;
+            border-radius: 10px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            border-left: 4px solid #5865f2;
+        }
+
+        .player-card .nickname {
+            font-weight: 700;
+            font-size: 16px;
+            color: #fff;
+        }
+
+        .player-card .info-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 13px;
+            color: #949ba4;
+        }
+
+        .player-card .room-tag {
+            background-color: #2b2d31;
+            color: #f23f43;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-weight: 600;
+        }
+
+        .empty-state {
+            background-color: #1e1f22;
+            border: 1px dashed #2b2d31;
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            color: #80848e;
+            grid-column: 1 / -1;
         }
 
         /* Right Side Panel Styling */
         .sidebar {
             width: 320px;
-            background-color: #2b2d31;
-            border-left: 2px solid #3f4147;
-            padding: 20px;
+            background-color: #1e1f22;
+            border-left: 1px solid #2b2d31;
+            padding: 24px;
             display: flex;
             flex-direction: column;
         }
 
         .sidebar h2 {
-            font-size: 18px;
+            font-size: 16px;
             margin-top: 0;
-            margin-bottom: 15px;
-            color: #5865f2;
+            margin-bottom: 16px;
+            color: #fff;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
-        /* Search Bar Input */
         .search-box {
             width: 100%;
-            padding: 10px;
-            box-sizing: border-box;
-            background-color: #1e1f22;
-            border: 1px solid #4e5058;
-            border-radius: 5px;
-            color: white;
+            padding: 12px;
+            background-color: #111214;
+            border: 1px solid #2b2d31;
+            border-radius: 8px;
+            color: #fff;
             outline: none;
-            margin-bottom: 15px;
+            margin-bottom: 16px;
             font-size: 14px;
         }
 
@@ -132,8 +223,7 @@ HTML_TEMPLATE = """
             border-color: #5865f2;
         }
 
-        /* Stored Players List Container */
-        .player-list {
+        .stored-list {
             list-style: none;
             padding: 0;
             margin: 0;
@@ -141,38 +231,40 @@ HTML_TEMPLATE = """
             flex: 1;
         }
 
-        .player-item {
-            background-color: #313338;
+        .stored-item {
+            background-color: #2b2d31;
             padding: 12px;
             margin-bottom: 8px;
             border-radius: 6px;
             font-size: 13px;
             font-family: monospace;
             word-break: break-all;
-            border-left: 3px solid #5865f2;
+            color: #b5bac1;
         }
     </style>
 </head>
 <body>
 
-    <!-- Main Content Body -->
+    <!-- Main Content: Active Players -->
     <div class="main-content">
-        <h1>FlowMenu Live Dashboard</h1>
-        <div class="card">
-            <h3>Active Online Players: <span id="onlineCount">0</span></h3>
+        <div class="header-card">
+            <h1>FlowMenu Dashboard</h1>
+            <div class="badge">Active Players: <span id="onlineCount">0</span></div>
+        </div>
+
+        <div class="section-title">Live Active Sessions</div>
+        <div id="activePlayersGrid" class="player-grid">
+            <div class="empty-state">No players currently connected</div>
         </div>
     </div>
 
-    <!-- Right Side Panel -->
+    <!-- Sidebar: Unique Player IDs -->
     <div class="sidebar">
-        <h2>Stored Player IDs</h2>
+        <h2>History</h2>
+        <input type="text" id="searchInput" class="search-box" placeholder="Search Player ID..." onkeyup="filterStoredPlayers()">
         
-        <!-- Search Bar -->
-        <input type="text" id="searchInput" class="search-box" placeholder="Search Player ID..." onkeyup="filterPlayers()">
-        
-        <!-- Player ID List -->
-        <ul id="playerList" class="player-list">
-            <!-- Populated automatically -->
+        <ul id="storedList" class="stored-list">
+            <!-- Dynamically populated -->
         </ul>
     </div>
 
@@ -184,42 +276,76 @@ HTML_TEMPLATE = """
                 const response = await fetch('/api/stats');
                 const data = await response.json();
                 
+                // Update player counter
                 document.getElementById('onlineCount').innerText = data.online_count || 0;
 
+                // Render Live Active Players
+                renderActivePlayers(data.players || []);
+
+                // Save & Render Stored Player IDs
                 allStoredIds = data.stored_player_ids || [];
-                renderPlayerList(allStoredIds);
+                renderStoredPlayers(allStoredIds);
             } catch (err) {
-                console.error("Error fetching web stats:", err);
+                console.error("Error fetching stats:", err);
             }
         }
 
-        function renderPlayerList(idArray) {
-            const listElement = document.getElementById('playerList');
-            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
-            
-            listElement.innerHTML = '';
+        function renderActivePlayers(players) {
+            const grid = document.getElementById('activePlayersGrid');
+            grid.innerHTML = '';
 
-            // Filter through stored IDs
+            if (players.length === 0) {
+                grid.innerHTML = '<div class="empty-state">No players currently connected</div>';
+                return;
+            }
+
+            players.forEach(p => {
+                const card = document.createElement('div');
+                card.className = 'player-card';
+                card.innerHTML = `
+                    <div class="nickname">${escapeHtml(p.nickname)}</div>
+                    <div class="info-row">
+                        <span>Room Code:</span>
+                        <span class="room-tag">${escapeHtml(p.room)}</span>
+                    </div>
+                    <div class="info-row">
+                        <span>ID:</span>
+                        <span style="font-family: monospace;">${escapeHtml(p.player_id)}</span>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        function renderStoredPlayers(idArray) {
+            const list = document.getElementById('storedList');
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            list.innerHTML = '';
+
             const filtered = idArray.filter(id => id.toLowerCase().includes(searchTerm));
 
             if (filtered.length === 0) {
-                listElement.innerHTML = '<li class="player-item" style="border-left:none; color:#888;">No IDs found</li>';
+                list.innerHTML = '<li class="stored-item" style="color:#80848e;">No IDs matched</li>';
                 return;
             }
 
             filtered.forEach(id => {
                 const li = document.createElement('li');
-                li.className = 'player-item';
+                li.className = 'stored-item';
                 li.textContent = id;
-                listElement.appendChild(li);
+                list.appendChild(li);
             });
         }
 
-        function filterPlayers() {
-            renderPlayerList(allStoredIds);
+        function filterStoredPlayers() {
+            renderStoredPlayers(allStoredIds);
         }
 
-        // Refresh stats every 3 seconds
+        function escapeHtml(str) {
+            return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+
+        // Auto-refresh stats every 3 seconds
         setInterval(fetchStats, 3000);
         fetchStats();
     </script>
