@@ -9,7 +9,7 @@ app = Flask(__name__)
 active_clients = {}
 TIMEOUT = 12
 
-# Unique stored player IDs (Prevents duplicate logs)
+# Unique stored keys (Prevents duplicate history logs)
 stored_player_ids = set()
 
 # Maps unique stored IDs -> Nickname (Displayed in History)
@@ -39,21 +39,27 @@ def ping():
     # Normalize room code
     room_code = raw_room if raw_room else "NOT IN ROOM"
 
+    # Filter out empty or placeholder default nicknames
     if not player_name or player_name.lower() == "unknown" or re.match(r"^gorilla\d+$", player_name.lower()):
         return jsonify({"status": "ignored", "reason": "unloaded_nickname"}), 200
 
-    # Always track active players on live list (including "NOT IN ROOM")
+    # Console debug log to see incoming payload data
+    print(f"[PING] Name: {player_name} | ID: '{player_id}' | Room: '{room_code}'")
+
+    # 1. Update Live Active Players list
     active_clients[player_name] = {
         "room": room_code,
         "player_id": player_id if player_id else "Unknown ID",
         "last_seen": time.time()
     }
 
-    # HISTORY CHECK: Store unique ID ONLY after they join a real room
-    if room_code.upper() != "NOT IN ROOM" and player_id:
-        if player_id not in stored_player_ids:
-            stored_player_ids.add(player_id)
-            stored_history[player_id] = player_name
+    # 2. Update History List immediately (even if NOT IN ROOM)
+    # Uses player_id if sent, otherwise falls back to player_name as the unique key
+    unique_key = player_id if player_id else player_name
+
+    if unique_key not in stored_player_ids:
+        stored_player_ids.add(unique_key)
+        stored_history[unique_key] = player_name
 
     return jsonify({"status": "ok", "online_count": len(active_clients)}), 200
 
